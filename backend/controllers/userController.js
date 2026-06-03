@@ -5,7 +5,7 @@ const jwt = require("jsonwebtoken");
 // Register
 exports.registerUser = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, location, preferences } = req.body;
 
     // hash password
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -14,6 +14,8 @@ exports.registerUser = async (req, res) => {
       name,
       email,
       password: hashedPassword,
+      location,
+      preferences
     });
 
     await user.save();
@@ -60,4 +62,19 @@ exports.loginUser = async (req, res) => {
 exports.getUsers = async (req, res) => {
   const users = await User.find();
   res.json(users);
+};
+
+exports.getProfile = async (req, res) => {
+  try {
+
+    const user = await User.findById(req.user.id)
+      .select("-password");
+
+    res.status(200).json(user);
+
+  } catch (error) {
+    res.status(500).json({
+      error: error.message
+    });
+  }
 };
