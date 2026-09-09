@@ -22,7 +22,7 @@ app.use("/api/notifications", notificationRoutes);
 
 // Basic test route
 app.get("/", (req, res) => {
-    res.send("API is working...");
+    res.send("API is running...");
 });
 
 module.exports = app;
