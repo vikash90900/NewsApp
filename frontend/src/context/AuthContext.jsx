@@ -1,73 +1,102 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import authApi from '../api/authApi';
+import { createContext, useState, useEffect, useCallback } from 'react';
+import { loginUser, registerUser, getUserProfile } from '../services/authService';
 
-const AuthContext = createContext(null);
+export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('newshub_user');
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
-
-  const [token, setToken] = useState(() => {
-    return localStorage.getItem('newshub_token') || null;
-  });
-
+  const [currentUser, setCurrentUser] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem('token') || null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchProfile = useCallback(async () => {
+    try {
+      setLoading(true);
+      const user = await getUserProfile();
+      setCurrentUser(user);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to fetch user profile:', err);
+      localStorage.removeItem('token');
+      setToken(null);
+      setCurrentUser(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const verifyAuth = async () => {
-      if (token) {
-        try {
-          const profileData = await authApi.getProfile();
-          setUser(profileData);
-          localStorage.setItem('newshub_user', JSON.stringify(profileData));
-        } catch (error) {
-          console.error('Failed to restore session:', error);
-          logout();
-        }
-      }
+    if (token) {
+      fetchProfile();
+    } else {
       setLoading(false);
-    };
-
-    verifyAuth();
-  }, [token]);
+    }
+  }, [token, fetchProfile]);
 
   const login = async (credentials) => {
-    const response = await authApi.login(credentials);
-    const userToken = response.token;
-    const userData = response.user || { email: credentials.email, name: response.name };
-
-    setToken(userToken);
-    setUser(userData);
-    localStorage.setItem('newshub_token', userToken);
-    localStorage.setItem('newshub_user', JSON.stringify(userData));
-    return response;
+    try {
+      setError(null);
+      setLoading(true);
+      const data = await loginUser(credentials);
+      // Expected backend response may contain token and user info
+      const receivedToken = data.token || data.jwt;
+      if (receivedToken) {
+        localStorage.setItem('token', receivedToken);
+        setToken(receivedToken);
+        if (data.user) {
+          setCurrentUser(data.user);
+        } else {
+          await fetchProfile();
+        }
+      }
+      return data;
+    } catch (err) {
+      const message = err.response?.data?.message || err.message || 'Login failed';
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const register = async (userData) => {
-    const response = await authApi.register(userData);
-    if (response.token) {
-      setToken(response.token);
-      setUser(response.user || userData);
-      localStorage.setItem('newshub_token', response.token);
-      localStorage.setItem('newshub_user', JSON.stringify(response.user || userData));
+    try {
+      setError(null);
+      setLoading(true);
+      const data = await registerUser(userData);
+      const receivedToken = data.token || data.jwt;
+      if (receivedToken) {
+        localStorage.setItem('token', receivedToken);
+        setToken(receivedToken);
+        if (data.user) {
+          setCurrentUser(data.user);
+        } else {
+          await fetchProfile();
+        }
+      }
+      return data;
+    } catch (err) {
+      const message = err.response?.data?.message || err.message || 'Registration failed';
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setLoading(false);
     }
-    return response;
   };
 
   const logout = () => {
+    localStorage.removeItem('token');
     setToken(null);
-    setUser(null);
-    localStorage.removeItem('newshub_token');
-    localStorage.removeItem('newshub_user');
+    setCurrentUser(null);
+    setError(null);
   };
 
   const value = {
-    user,
+    currentUser,
     token,
-    isAuthenticated: !!token,
+    isAuthenticated: !!token && !!currentUser,
     loading,
+    error,
     login,
     register,
     logout,
@@ -75,13 +104,3 @@ export const AuthProvider = ({ children }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
-
-export default AuthContext;
