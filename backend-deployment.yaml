@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: newsapp-backend
+
+spec:
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: newsapp-backend
+
+  template:
+    metadata:
+      labels:
+        app: newsapp-backend
+
+    spec:
+      containers:
+        - name: backend
+          image: newsapp-backend:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          env:
+            - name: PORT
+              value: "5000"
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: newsapp-secrets
+                  key: MONGO_URI
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: newsapp-secrets
+                  key: JWT_SECRET
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: newsapp-secrets
+                  key: API_KEY
