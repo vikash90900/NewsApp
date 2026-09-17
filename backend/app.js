@@ -20,6 +20,11 @@ app.use("/api/activities", activityRoutes);
 app.use("/api/recommendations", recommendationRoutes);
 app.use("/api/notifications", notificationRoutes);
 
+// Health check route
+app.get("/health", (req, res) => {
+    res.status(200).json({ status: "OK" });
+});
+
 // Basic test route
 app.get("/", (req, res) => {
     res.send("API is running...");
