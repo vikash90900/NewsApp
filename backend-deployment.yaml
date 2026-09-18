@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: newsapp-backend:1.0
+          image: vikash200/newsapp-backend:1.1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5000
@@ -41,3 +41,23 @@ spec:
                 secretKeyRef:
                   name: newsapp-secrets
                   key: API_KEY
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
